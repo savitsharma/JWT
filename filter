@@ -1,0 +1,32 @@
+    @Autowired
+    JWTUtils jwtUtils;
+    @Autowired
+    CustomUserService customUserService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+
+        final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(header) || StringUtils.hasText(header) && !header.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        final String token = header.split(" ")[1].trim();
+        UserDetails userDetails = customUserService.loadUserByUsername(jwtUtils.getUsernameFromToken(token));
+
+        if (!jwtUtils.validateToken(token, userDetails)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken
+                = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails == null ? List.of() : userDetails
+                .getAuthorities());
+        usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+        SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+        filterChain.doFilter(request, response);
+
+
+    }
+}
